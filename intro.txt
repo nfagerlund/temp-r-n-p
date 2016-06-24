@@ -11,18 +11,57 @@ title: "Roles and Profiles: Introduction"
 [lookup_function]: TODO
 [main manifest]: TODO
 [resource-like]: TODO
+[rtyler/jenkins]: TODO
+[puppetlabs/apt]: TODO
 
-Building system configurations can be difficult --- mostly because the systems you manage are complicated. And while you probably already know that _reusable code_ is crucial for managing that complexity, it's important to also make sure your code is _easy to refactor_ and _easy to configure._
 
-So here's an method of building reusable, configurable, and refactorable system configurations that works well for most people. It's not a straightforward recipe: you must think hard about the nature of your infrastructure and your team. It's also not a final state: expect to refine your configurations over time. Instead, it's an approach to _designing your infrastructure's interface_ --- sealing away incidental complexity, surfacing the significant complexity, and making sure your data is always in a predictable place.
+Most people's primary goal with Puppet is to build _complete system configurations:_ that is, to manage all of the software, services, and configuration they care about on a given system. (This usually isn't _every_ piece of software on a system; just the subset that matters to your business.)
 
-The name of this method is "roles and profiles." In these pages, we won't spend much time arguing why this is a good approach; there are already a lot of blog posts and presentations about that. We'll just focus on how to use it yourself.
+Building system configurations can be difficult --- mostly because the systems you manage are complicated. To keep that complexity under control, your code needs to be reusable, easy to configure, and easy to refactor.
 
-## Quick roles and profiles glossary
+The **roles and profiles** method is Puppet's best tool for building reusable, configurable, and refactorable system configurations. It's not a straightforward recipe: you must think hard about the nature of your infrastructure and your team. It's also not a final state: expect to refine your configurations over time. Instead, it's an approach to _designing your infrastructure's interface_ --- sealing away incidental complexity, surfacing the significant complexity, and making sure your data behaves predictably.
 
-From Puppet's perspective, a [module][] is just a module and a [class][] is just a class. However, from a human perspective, it's worth having distinct names that indicate what those classes and modules are used for. We'll use these three terms extensively when explaining how to design configurations:
+## The roles and profiles architecture
 
-* **Component module:** A regular module that configures one particular technology. They're usually named after the software they manage (puppetlabs-apache, etc.), and are often written by third parties and published on the Puppet Forge.
+Roles and profiles are **two extra layers of indirection** between your node classifier and your component modules.
+
+> **Note:** A component module is a normal module that manages one technology. See the [glossary][] below.
+
+![Diagram: NC assigns one role to group of nodes; role declares several profiles; profiles declare resources and classes from component modules, as well as core resources and other profiles.](./roles_and_profiles_overview.jpg)
+
+In short, from top to bottom:
+
+* Your node classifier assigns one **role** class to a group of nodes. The role manages a whole system configuration, so no other classes are needed. The NC does not configure the role in any way.
+* That role class declares some **profile** classes with `include`, and does nothing else. For example:
+
+  ``` puppet
+  class role::jenkins::master {
+    include profile::base
+    include profile::server
+    include profile::jenkins::master
+  }
+  ```
+
+* Each profile configures a layered technology stack, using multiple component modules and the built-in resource types. (In the diagram, `profile::jenkins::master` uses [rtyler/jenkins][], [puppetlabs/apt][], a home-built backup module, and some `package` and `file` resources.)
+* Profiles can take configuration data from Hiera or Puppet lookup.
+* You limit your use of component module classes as follows:
+    * Component classes are always declared via a profile, and never assigned directly to a node.
+    * If they have class parameters, you specify them in the profile; never use Hiera or Puppet lookup to override component class params.
+
+These extra layers of indirection might seem like they add complexity, but what they really do is give you a space to build practical, business-specific interfaces to the differences you care most about. A better interface makes hierarchical data easier to use, makes system configurations easier to read, and makes refactoring easier.
+
+### Building configurations without roles and profiles
+
+Without roles and profiles, people typically build system configurations in their node classifier or [main manifest][], using Hiera to handle tricky inheritance problems. A standard approach is to create a group of similar nodes and assign classes to it, then create child groups with extra classes for nodes that have additional needs. Another common pattern is to put everything in Hiera, using a very large hierarchy that reflects every variation in the infrastructure.
+
+If this works for you, then it works! You might not need roles and profiles. But most people find direct building gets difficult to understand and maintain over time.
+
+## Glossary of terms
+
+[glossary]: #glossary-of-terms
+
+* **Node classifier:** A tool that assigns classes to nodes. Generally means the Puppet Enterprise console, but can also be the [main manifest][] or Hiera.
+* **Component module:** A normal module that manages one particular technology. They're usually named after the software they manage (puppetlabs-apache, etc.), and are often written by third parties and published on the Puppet Forge.
 
     In general, component modules are highly configurable, especially Forge modules that must serve a wide variety of people and needs. Their classes tend to have a lot of parameters.
 * **Profile:** A business-specific wrapper class that configures a layered technology stack (which might involve several pieces of software). They usually take advantage of classes and resources from several different component modules.
@@ -60,51 +99,4 @@ Your profile classes must work safely with the `include` function. This means:
 You'll sometimes have to decide between repeating yourself (making code easier to read and understand, but potentially more difficult to refactor) or splitting code into more pieces (making it simpler and easier to refactor, but more difficult to read and understand). This mostly comes up when working with roles, or with super-profiles that include several other profiles.
 
 There's not necessarily a right answer to this trade-off, because it depends on what your business values most. Think hard about what you and your team find most difficult.
-
-
-## Roles and profiles in a nutshell
-
-The outline of how to use roles and profiles is very simple: set up your prerequisites, write profile classes, use hierarchical data to configure profiles (and nothing else), combine profiles to build roles, and assign a role to each node.
-
-### Get component modules
-
-Find good component modules from the Forge to manage the software you care about. Avoid writing new modules when possible.
-
-### Set up your special modules
-
-Make two special modules for your business: `role` and `profile`. You'll be building these from scratch.
-
-If you manage your code with PE's code manager or r10k, keep these two modules in the control repo instead of referencing them with a Puppetfile. Add a `site` directory to the repo, edit the [environment.conf][] file to make sure it's included in the modulepath, and put `role` and `profile` in there.
-
-### Set up Hiera / Puppet lookup
-
-To use roles and profiles effectively, you **must** use a hierarchical key/value lookup system to configure your profiles. With Puppet, that means one of:
-
-* [Hiera][] (tried and true, but has some frustrating limitations)
-* [Puppet lookup][] (significantly improved, but not yet fully stable)
-
-This choice isn't as hard as it looks, since both are built into Puppet and their data formats are almost fully compatible. You can switch later if you have to. Choose one, learn how to use it, and set up a lookup hierarchy that works for your business and infrastructure. And remember: a large, detailed hierarchy makes it easier to do sophisticated things in the moment, but a small, concise hierarchy is easier to maintain. It's a trade-off.
-
-### Write profiles
-
-This is the most complicated part of this method, and we'll cover it in detail in a moment.
-
-These should all be classes named `profile::<NAME>`, which live in your `profile` module. Each one should configure a logical technology stack.
-
-### Use data to configure profiles
-
-If a profile needs to behave differently on different kinds of systems, configure it with data from Hiera or Puppet lookup. Use namespaced keys like `profile::jenkins::master::site_alias` so you can tell which profile the settings are associated with. Your profiles can look up data with [automatic class parameter lookup][auto_params] or with explicit calls to [the `lookup` function][lookup_function].
-
-**Don't use data to directly configure component classes.** Configure the profile, and then the profile can configure the components.
-
-### Write roles
-
-These should all be classes named `role::<NAME>`, which live in your `role` module. Each role should build a complete system configuration by declaring profiles with the `include` function.
-
-You can use conditional logic in a role to change which profiles are included, but the logic should only ever result in `include` statements. Never use resource-like class declarations when declaring profiles.
-
-### Assign one role to each node
-
-Using whatever node classification system you prefer (PE console, node statements in the [main manifest][], `hiera_include`), assign one role class to each node.
-
 
