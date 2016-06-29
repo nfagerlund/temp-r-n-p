@@ -1,5 +1,5 @@
 ---
-title: "Roles and profiles: Writing profile classes"
+title: "Roles and profiles: A top-to-bottom example"
 ---
 
 [jenkins_module]: https://forge.puppet.com/rtyler/jenkins
@@ -7,21 +7,67 @@ title: "Roles and profiles: Writing profile classes"
 [java_module]: TODO
 [auto_params]: TODO
 [puppet strings]: TODO
-[specified data types]: TODO
+[modules]: TODO
+[hiera]: TODO
+[puppet lookup]: TODO
+[include]: TODO
+[resource-like]: TODO
+[pe console]: TODO
+[main manifest]: TODO
+[node statements]: TODO
 
+This page will demonstrate a complete roles and profiles workflow, focusing on a simple but plausible example.
 
-Profile classes are the heart of the roles and profiles method. (It might as well be called "profiles, plus some other stuff to make them work well.") They're also the most challenging part to implement --- they require thoughtful design, and tend to evolve over time.
+Your goal on this page is to understand the method as a whole. On the following pages, we'll teach you how to design advanced configurations, by refactoring this example code to a more realistic level of complexity.
 
-In this section, we'll show multiple versions of a profile to configure a [Jenkins][] master, which is a complex, pluggable JVM-based application for running continuous integration tasks on a number of builder nodes. The goal is to show some of the trade-offs and optimizations that go into profile design, and we'll point out ways the authors might do things differently if they had slightly different priorities.
+## Our example: Jenkins masters
 
+[Jenkins][] is a continuous integration (CI) application that runs on the JVM. The Jenkins master server provides a web front-end, and also runs CI tasks at scheduled times or in reaction to events.
 
-## A simple Jenkins profile
+For our main example, we'll try to manage the configuration of our Jenkins master servers.
 
-To begin with, here's a simple profile that uses the [rtyler/jenkins][jenkins_module] and [puppetlabs/java][java_module] modules to configure a Jenkins master.
+## Step 0: Set up your prerequisites
+
+If you're new to using roles and profiles, you might need to do some additional work before writing any new code.
+
+1. Create two new [modules][]: one named `role`, and one named `profile`.
+    * If you deploy your code with Puppet Enterprise's code manager or r10k, put these two modules in your control repository instead of declaring them in your Puppetfile. (You can do it either way, but this way gives better results for most people.) You'll have to make a separate directory in the repo (usually named `site`) and edit the `environment.conf` file to add that directory to the `modulepath`.
+2. Make sure [Hiera][] and/or [Puppet lookup][] is set up and working, with a hierarchy that works well for you.
+
+## Step 1: Choose component modules
+
+* For our current task, we definitely want to manage Jenkins itself. The standard module for that is [rtyler/jenkins][jenkins_module].
+* Jenkins requires Java, and the rtyler module can manage it automatically. But we want finer control over Java, so we're going to disable that. We need a Java module, and [puppetlabs/java][java_module] is a solid choice.
+
+That's enough to start with; we can refactor and expand once we have those working.
+
+## Step 2: Write a profile
+
+From Puppet's perspective, a profile is just a normal class stored in the `profile` module. So we'll make a new class called `profile::jenkins::master`, located at `.../profile/manifests/jenkins/master.pp`.
+
+Then we have to write the code.
+
+### The rules
+
+Here are the rules for writing profile classes:
+
+* Make profiles work safely with [the `include` function][include] --- don't use [resource-like declarations][resource-like] on them.
+* Profiles can `include` other profiles.
+* Profiles own _all_ the class parameters for their component classes. If the profile omits one, that means we definitely want the default value; the component class shouldn't grab a value from Hiera data. If you need to set a class parameter that was omitted previously, refactor the profile.
+* There are three ways a profile can get the information it needs to configure component classes:
+    * If your business will always use the same value for a given parameter, **hardcode it.**
+    * If you can't hardcode it, try to **compute it** based on information you already have.
+    * Finally, if you can't compute it, **look it up** in your data. To reduce lookups, try to identify cases where multiple parameters can be derived from the answer to a single question.
+
+    This is a game of trade-offs. Hardcoded parameters are the easiest to read, and also the least flexible. Putting values in your Hiera data is very flexible, but very difficult to read: you might have to look through a lot of files (or run a lot of lookup commands) to see what the profile is actually doing. Using conditional logic to derive a value is a middle-ground.
+
+    Aim for the most readable option you can get away with.
+
+### The code
 
 ``` puppet
-# /etc/puppetlabs/code/environments/production/site/profile/manifests/jenkins.pp
-class profile::jenkins (
+# /etc/puppetlabs/code/environments/production/site/profile/manifests/jenkins/master.pp
+class profile::jenkins::master (
   String $jenkins_port = '9091',
   String $java_dist    = 'jdk',
   String $java_version = 'latest',
@@ -45,334 +91,83 @@ class profile::jenkins (
 }
 ```
 
-This is pretty minimal (declare two classes and set an ordering relationship), but it works. Here are some important things to notice:
+This is pretty simple, but is already benefiting us: our interface for configuring Jenkins has gone from 30-some parameters on the Jenkins class (and many more on the Java class) down to three. Notice that we've hardcoded the `configure_firewall` and `install_java` parameters, and have reused the value of `$jenkins_port` in three places.
 
-### Only profiles can set parameters for component classes
+### About data and class parameters
 
-The Jenkins module has about 30 parameters, but the profile only sets a value for four. In the roles and profiles pattern, this means the default values for any omitted parameters are correct for our business, and shouldn't be changed. No one in our org should use Hiera / Puppet lookup to set extra parameters for this class --- if a parameter needs a value, we _always_ set it in the profile.
+Profiles usually require some amount of configuration, and they must use data lookup to get it.
 
-As long as we restrict ourselves like that, the profile is the _single source of truth_ for how a component class is configured. Since the profile is more complete, it also becomes much more readable, which in turn makes it easier to use and refactor.
-
-Setting component params in Hiera might add some flexibility and power, but at too great a cost. This is the fundamental idea behind roles and profiles: there a lot of trade-offs available when deciding which features to use where, and you should almost always choose in favor of readability and ease of refactoring.
-
-### Profiles can use class parameters to request configuration data
-
-This profile's author wanted to configure some things differently for different kinds of nodes (for example, some teams want Jenkins on a different port), so they defined some class parameters.
-
-When the profile gets declared, values for these parameters will come from Hiera / Puppet lookup via [automatic class parameter lookup][auto_params]. Your Hiera data must set values for keys named `profile::jenkins::jenkins_port`, etc.
-
-#### What if I don't like automatic class params?
-
-Alternately, the author could have omitted the parameters and used the `lookup` function to get data for the same keys, like this:
+In this profile, we use [automatic class parameter lookup][auto_params] to request data. But we also could have omitted the parameters and used the `lookup` function:
 
 ``` puppet
 class profile::jenkins {
-  $jenkins_port = lookup('profile::jenkins::jenkins_port', String)
-  $java_dist    = lookup('profile::jenkins::java_dist', String)
-  $java_version = lookup('profile::jenkins::java_version', String)
+  $jenkins_port = lookup('profile::jenkins::jenkins_port', {value_type => String, default_value => '9091'})
+  $java_dist    = lookup('profile::jenkins::java_dist',    {value_type => String, default_value => 'jdk'})
+  $java_version = lookup('profile::jenkins::java_version', {value_type => String, default_value => 'latest'})
   # ...
 ```
 
-This is a valid approach if you aren't comfortable with automatic parameter lookup. Auto-lookup adds the class name to the parameter name, which means the real lookup key isn't explicitly written down in the profile. It's very simple to figure out that real key (`<CLASS NAME>::<PARAMETER NAME>`), but some people still don't like that extra step --- maybe they have people on their team who aren't 100% comfortable with reading Puppet code, and they want to make sure everyone can just grep key names to find stuff.
+In general, class parameters are better. They integrate better with tools like [Puppet Strings][], they'll probably integrate better with future tools, and they're a reliable and well-known place to look for configuration. But using `lookup` is a fine approach if you aren't comfortable with automatic parameter lookup. (Some people prefer the full lookup key to be written in the profile, so they can globally grep for it.)
 
-Still, unless you have really strong feelings about it, _we recommend using class parameters._ They integrate better with tools like [Puppet Strings][], they'll probably integrate better with future tools, and they're a reliable and well-known place to look for configuration.
+## Step 3: Set Hiera data for the profile
 
-### Profiles should hardcode what they can, and reuse data when possible
+Let's assume the following:
 
-This profile sets values for six component class params, but it doesn't request values for all of them. In fact, it only asks for three values, and re-uses some of them in multiple places. And some of the parameters (`configure_firewall`, `install_java`) are hardcoded, so they can't be configured per-node at all.
+- We use some custom facts:
+    - `group`: The group this node belongs to. (This is usually either a department of our business, or a large-scale function shared by many nodes.)
+    - `stage`: The deployment stage of this node (dev, test, or prod).
+- We have a four-layer hierarchy:
+    - `nodes/%{trusted.certname}` for per-node overrides.
+    - `groups/%{group}/%{stage}` for setting stage-specific data within a group.
+    - `groups/%{group}` for setting group-specific data.
+    - `common` for global fallback data.
+- We have a few one-off Jenkins masters, but most of them belong to the `ci` group.
+- Our quality engineering department wants masters in the `ci` group to use the Oracle JDK, but one-off machines can just use the platform's default Java.
+- QE also wants their prod masters to listen on port 80.
 
-When you write profiles, you are _designing an interface_ for how software gets configured at your business. That means you want to boil down the many configuration options for your component classes into a smaller, more meaningful set of parameters, so that you and your colleagues can focus on the choices that actually matter to you.
+So, we'll set the following values in our data:
 
-* If you're always going to use the same value for something, hardcode it! Make it so no one has to think about it when configuring a node.
-* If you can derive the appropriate value from a fact, do that.
-* If you can combine multiple parameters into a single policy question, do.
+``` yaml
+# /etc/puppetlabs/code/environments/production/data/nodes/ci-master01.example.com.yaml
+# --Nothing. We don't need any per-node values right now.
 
-### Avoid premature optimizations
+# /etc/puppetlabs/code/environments/production/data/groups/ci/prod.yaml
+profile::jenkins::master::jenkins_port: '80'
 
-You probably run a LOT of technologies that require Java. And since this profile does a hard resource-like declaration of the `java` class, it won't play nicely with any other profiles that declare Java.
+# /etc/puppetlabs/code/environments/production/data/groups/ci.yaml
+profile::jenkins::master::java_dist: 'oracle-jdk8'
+profile::jenkins::master::java_version: '8u92'
 
-But that might not be a problem! If you do need Jenkins to co-exist with other Java applications, you can pull Java out into a separate `include`-safe profile and include it in both app profiles. But until then, you might as well leave it here, because that makes for more readable code.
+# /etc/puppetlabs/code/environments/production/data/common.yaml
+# --Nothing. Just use the default parameter values.
+```
 
-### Data type restrictions are nice
+## Step 4: Write a role
 
-In this example, the author [specified data types][] for the profile's parameters. You should too: they ensure you get the values you expect, and they're easy for your colleagues to read.
+Next, we consider the machines we'll be managing and decide what else they need in addition to that Jenkins profile.
 
+Our Jenkins masters don't serve any other purpose. But we have some profiles (code not shown) that we expect every machine in our fleet to have:
 
+* `profile::base` must be assigned to every machine, including workstations. It manages basic policies, and uses some conditional logic to include OS-specific profiles as needed.
+* `profile::server` must be assigned to every machine that provides a service over the network. It makes sure ops can log into the machine, and configures things like timekeeping, firewalls, logging, and monitoring.
 
-
-## A really complicated Jenkins profile
-
-Now that you know what to watch for when designing profiles, here's a Jenkins profile that has encountered real infrastructure and has the battle scars to prove it. This is a slightly modified version of what we actually use to manage Jenkins instances at Puppet.
-
-After the code, we'll point out some of the less obvious choices it makes, and discuss why you might follow our lead or do things differently.
+So a role that configures a node to be one of our Jenkins masters looks like this:
 
 ``` puppet
-# /etc/puppetlabs/code/environments/production/site/profile/manifests/jenkins/master.pp
-# Class: profile::jenkins::master
-#
-# Install a Jenkins master that meets Puppet's internal needs.
-#
-class profile::jenkins::master (
-  Boolean                     $backups_enabled = false,
-  Boolean                     $manage_plugins = false,
-  Boolean                     $ssl = false,
-  Optional[String[1]]         $site_alias = undef,
-  Variant[String[1], Boolean] $direct_download = 'http://pkg.jenkins-ci.org/debian-stable/binary/jenkins_1.642.2_all.deb',
-  Data                        $jenkins_logs_to_syslog = undef,
-  Boolean                     $install_jenkins_java = true,
-) {
-
-  # Deploy the SSL certificate/chain/key for sites on this domain.
-  include profile::ssl::delivery_wildcard
-
-  # Some default values that vary by OS:
-  include profile::jenkins::params
-  $jenkins_owner          = $profile::jenkins::params::jenkins_owner
-  $jenkins_group          = $profile::jenkins::params::jenkins_group
-  $master_config_dir      = $profile::jenkins::params::master_config_dir
-
-  if $manage_plugins {
-    # About 40 jenkins::plugin resources:
-    include profile::jenkins::master::plugins
-  }
-
-  motd::register { 'Jenkins CI master (profile::jenkins::master)': }
-
-  # This adds the site_alias to the message of the day for convenience when
-  # logging into a server via FQDN. Because of the way motd::register works, we
-  # need a sort of funny formatting to put it at the end (order => 25) and to
-  # list a class so there isn't a random "--" at the end of the message.
-  if $site_alias {
-    motd::register { 'jenkins-site-alias':
-      content => @("END"),
-                 profile::jenkins::master::proxy
-
-                 Jenkins site alias: ${site_alias}
-                 |-END
-      order   => 25,
-    }
-  }
-
-  # This is a "private" profile that sets up an Nginx proxy -- it's only ever
-  # declared in this class, and it would work identically pasted inline.
-  # But since it's long, this class reads more cleanly with it separated out.
-  class { 'profile::jenkins::master::proxy':
-    site_alias  => $site_alias,
-    require_ssl => $ssl,
-  }
-
-  # Sensitive info (like SSH keys) isn't checked into version control like the
-  # rest of our modules; instead, it's served from a custom mount point on a
-  # designated server.
-  $secure_server = lookup('puppetlabs::ssl::secure_server')
-
-  # Dependencies:
-  #   - Pull in apt if we're on Debian.
-  #   - Pull in the 'git' package, used by Jenkins for Git polling.
-  #   - Manage the 'run' directory (fix for busted Jenkins packaging).
-  if $::osfamily == 'Debian' { include apt }
-
-  package { 'git':
-    ensure => present,
-  }
-
-  file { '/var/run/jenkins': ensure => 'directory' }
-
-  # Because our account::user class manages the '${master_config_dir}' directory
-  # as the 'jenkins' user's homedir (as it should), we need to manage
-  # `${master_config_dir}/plugins` here to prevent the upstream
-  # jenkinsci-jenkins module from trying to manage the homedir as the config
-  # dir. For more info, see the upstream module's `manifests/plugin.pp`
-  # manifest.
-  file { "${master_config_dir}/plugins":
-    ensure  => directory,
-    owner   => $jenkins_owner,
-    group   => $jenkins_group,
-    mode    => '0755',
-    require => [Group[$jenkins_group], User[$jenkins_owner]],
-  }
-
-  Account::User <| tag == 'jenkins' |>
-
-  class { 'jenkins':
-    lts                => true,
-    repo               => true,
-    direct_download    => $direct_download,
-    version            => 'latest',
-    service_enable     => true,
-    service_ensure     => running,
-    configure_firewall => false,
-    install_java       => $install_jenkins_java,
-    manage_user        => false,
-    manage_group       => false,
-    manage_datadirs    => false,
-  }
-
-  # When not using the jenkins module's java version, install java8.
-  unless $install_jenkins_java  { include profile::jenkins::usage::java8 }
-
-  # Manage the heap size on the master, in MB.
-  if($::memorysize_mb =~ Number and $::memorysize_mb > 8192)
-  {
-    # anything over 8GB we should keep max 4GB for OS and others
-    $heap = sprintf('%.0f', $::memorysize_mb - 4096)
-  } else {
-    # This is calculated as 50% of the total memory.
-    $heap = sprintf('%.0f', $::memorysize_mb * 0.5)
-  }
-  # Set java params, like heap min and max sizes. See
-  # https://wiki.jenkins-ci.org/display/JENKINS/Features+controlled+by+system+properties
-  jenkins::sysconfig { 'JAVA_ARGS':
-    value => "-Xms${heap}m -Xmx${heap}m -Djava.awt.headless=true -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Dhudson.model.DirectoryBrowserSupport.CSP=\\\"default-src 'self'; img-src 'self'; style-src 'self';\\\"",
-  }
-
-  # (QENG-3512) Forward jenkins master logs to syslog
-  # When set to facility.level the jenkins_log will use that value instead of a
-  # separate log file eg. daemon.info
-  if $jenkins_logs_to_syslog {
-    jenkins::sysconfig { 'JENKINS_LOG':
-      value => "$jenkins_logs_to_syslog",
-    }
-  }
-
-  # Deploy the SSH keys that Jenkins needs to manage its builder machines and
-  # access Git repos.
-  file { "${master_config_dir}/.ssh":
-    ensure => directory,
-    owner  => $jenkins_owner,
-    group  => $jenkins_group,
-    mode   => '0700',
-  }
-
-  file { "${master_config_dir}/.ssh/id_rsa":
-    ensure => file,
-    owner  => 'jenkins',
-    group  => 'jenkins',
-    mode   => '0600',
-    source => "puppet://${secure_server}/secure/delivery/id_rsa-jenkins",
-  }
-
-  file { "${master_config_dir}/.ssh/id_rsa.pub":
-    ensure => file,
-    owner  => 'jenkins',
-    group  => 'jenkins',
-    mode   => '0640',
-    source => "puppet://${secure_server}/secure/delivery/id_rsa-jenkins.pub",
-  }
-
-  # Back up Jenkins' data.
-  if $backups_enabled {
-    backup::job { "jenkins-data-${::hostname}":
-      files => '/var/lib/jenkins'
-    }
-  }
-
-  # (QENG-1829) Logrotate rules:
-  # Jenkins' default logrotate config retains too much data: by default, it
-  # rotates jenkins.log weekly and retains the last 52 weeks of logs.
-  # Considering we almost never look at the logs, let's rotate them daily
-  # and discard after 7 days to reduce disk usage.
-  logrotate::job { 'jenkins':
-    log     => '/var/log/jenkins/jenkins.log',
-    options => [
-      'daily',
-      'copytruncate',
-      'missingok',
-      'rotate 7',
-      'compress',
-      'delaycompress',
-      'notifempty'
-    ],
-  }
+class role::jenkins::master {
+  include profile::base
+  include profile::server
+  include profile::jenkins::master
 }
 ```
 
-### Everything we said above, but moreso
+## Step 5: Assign the role to nodes
 
-Notice how much more parameter hardcoding this profile does. And it only asks for seven parameters, even though it configures a wild amount of stuff.
+Finally, we assign `role::jenkins::master` to every node that acts as a Jenkins master.
 
-Also notice how aggressively it derives configuration from facts: for example, we use the `$::memorysize_mb` fact to calculate Jenkins' heap size, because if we build a Jenkins master on a beefy server, we're definitely planning to put it under heavy load. Since we know our own patterns of system provisioning, we don't have to throw our hands up and ask for config on questions like this; we can just figure it out without bothering anyone. A component module published to the Puppet Forge would never be able to get away with that, but a business-specific wrapper can save a LOT of time this way.
+Puppet has several ways to assign classes to nodes, so use whichever tool you feel best fits your team. Your main choices are:
 
-### Ease of refactoring matters because you WILL refactor
-
-This profile has had some history. You can see some of that in the comments, especially the ones that reference ticket numbers.
-
-### Different orgs care about different options
-
-Unlike the first profile, this one doesn't include a `$jenkins_port` parameter --- we just accept the default, and then set up a reverse proxy in front of it on ports 80 and/or 443. We're more interested in whether the instance uses SSL, whether it has a site alias, whether it needs backup support, etc.
-
-It's just like we said before: you're designing **your** interface here, so you need to know what configuration **you** care about.
-
-### Profiles can include other profiles
-
-For example: We know we'll need our internal SSL certificate and key to provide Jenkins over HTTPS, so we call `include profile::ssl::delivery_wildcard`.
-
-Depending on what else this server does, that same `profile::ssl::delivery_wildcard` class might be included by the role, and by any number of other profiles. But since they'll all use the `include` function to do it, it works out fine: that profile will get its configuration from Hiera or Puppet lookup, and there will be no conflicts.
-
-This is a really important pattern of refactoring and code re-use in the roles and profiles method: if some technology is required by multiple profiles, and if those profiles sometimes have to coexist on the same machine, you can pull it out into a separate profile and include it everywhere.
-
-Which is why you **must** use Hiera/lookup and keep your profiles `include`-safe: that's what gives you the freedom to refactor this way.
-
-### Sometimes we break the rules
-
-Except: notice that we're using one non-`include`-safe profile class here.
-
-``` puppet
-  class { 'profile::jenkins::master::proxy':
-    site_alias  => $site_alias,
-    require_ssl => $ssl,
-  }
-```
-
-This is a resource-like class declaration on a profile class, which is a huge no-no. If we were to include that profile in a role or another profile, there's a very good chance it would blow up and put us in duplicate declaration hell.
-
-Why did the authors do this? Because that's a "private" profile. It will _never_ be included anywhere else, because it's nothing but an implementation detail of the `profile::jenkins::master` class --- it piggybacks on the main profile's configuration data, and it has no meaning outside the main profile. It would work just as well if we pasted its entire contents inline. But since it's a large amount of Puppet code that does exactly one thing, we decided to shove it into its own class to make the main profile cleaner and more readable.
-
-We're breaking a rule here, but we're doing it in service of readability (and thus maintainability). Also, because it has a very tiny interface, it even makes refactoring easier: `profile::jenkins::master::proxy` used to manage an Apache reverse proxy, but about a month before we copied this example, it was rewritten to manage an Nginx proxy instead. This resulted in almost no changes to the main profile. So while you have to read more files to see how a Jenkins master is really configured, we ultimately decided the benefits were worth the cost.
-
-The takeaway here is that you should know the rules and follow them, but you also have to understand why they exist, because there are going to be times where you can make life a lot easier by breaking a few.
-
-(But then again: How can we, as readers, know that sub-profile is private? There's no built-in way to ensure that, so you have to make sure it's documented. And in some orgs, you might decide that's not worth it, and the predictability of strict `include`-safety is worth the hit to readability. Everything is a trade-off.)
-
-### Profiles can manage a _lot_ of stuff surrounding their main technology
-
-Our first example just declared classes, but this one adds a huge amount of one-off resources! There are some `motd::register` resources for user-friendly SSH sessions, some `file` resources for SSH keys, some `jenkins::sysconfig` resources, a `backup::job`, a `logrotate::job`, etc.
-
-This is exactly why profiles are useful. If everything was just a component class, you could probably assemble them some other way and assign them to nodes, but component module authors can't anticipate all of your needs, and you'll almost always need to assemble some extra pieces to _completely_ configure a service.
-
-### Sometimes there's some opaque action at a distance `¯\_(ツ)_/¯`
-
-Most of this profile's configuration data is well-behaved, arriving via unique class parameters. But alas, there's also a bit of indirect action:
-
-* We call `lookup()` on some foreign keys like `puppetlabs::ssl::secure_server`, which entangles our code and makes refactoring harder. If we ever rewrite that class, we'll also need to go find all the other profiles that reach into its data and make sure they still work.
-
-    But because that data is useful in so many places, we're willing to pay that cost to ensure it's only managed in one place. We make sure that class's entanglement is well-documented, so that anyone messing with it will know they have to follow-up _very carefully._
-* To manage Jenkins' user account, we use a resource collector: `Account::User <| tag == 'jenkins' |>`. This takes advantage of some other code that's not directly related to this class: every server in our infrastructure is assigned a `profile::server` class, which in turn includes `profile::operations`, which declares a class called `virtual::users`, which has a lot of virtual resources to flexibly manage large groups of users who need access to different kinds of machines.
-
-    This is _really_ opaque, but it's also incredibly useful, mostly because we're an engineering-heavy software shop where a lot of non-ops users need ops-like access to some limited number of machines. We've found that keeping user accounts in Puppet code in a well-managed Git repo is one of the less painful ways to manage all that. So we pay the cost, which is that everyone in ops has to know a: where these user accounts come from, and b: that all new servers need the `profile::server` class.
-
-The theme here is trade-offs. We were faced with a few imperfect ways to approach a problem, so we chose what worked best for us and did whatever we could to offset its disadvantages. You'll do the same.
-
-### Avoid premature optimizations
-
-Like the `java` class in the first example, here's something we didn't pull out into its own profile:
-
-``` puppet
-  package { 'git':
-    ensure => present,
-  }
-```
-
-There are probably a LOT of technology stacks that require Git, so I could easily imagine Git having its own profile. But:
-
-* So far, we haven't built any servers where Jenkins has to co-exist with some other service that needs Git. And we don't really expect to build any. So there's no need to push it off into an `include`-safe class yet.
-* This is a really small amount of configuration. We're not templating any config files, starting any services, or anything. Keeping this little package resource nearby is a nice win for readability, because it would be pointlessly annoying to go open another file and just find a little three-liner.
-
-So as long as you can get away with it, go ahead and put semi-shared resources like this into specialized profiles, because it makes for more readable code. You might never have to move them out.
-
-Conversely, notice that we have a `profile::jenkins::params` class that does nothing but set some variables with conditional logic. You can easily imagine this profile being more readable if we moved that logic inside it.
-
-But as it happens, we have a big pile of other profiles for managing the builder nodes that our Jenkins system relies on, and they need some of the same default data that our Jenkins masters need. So at some point, we decided to move that data into a shared class, because the cost of reading separated code became a lot less than the cost of keeping multiple copies of the code up to date. I haven't read the entire Git history, but my guess is that we waited to optimize that until we had to.
-
-As always, the take-away is that everything is a trade-off and you have to keep your eye on what's important to your org.
+* The [PE console][], which lets you group nodes based on their facts and assign classes to those groups.
+* The [main manifest][], which can use [node statements][] or conditional logic to assign classes.
+* Hiera or Puppet lookup --- use the `lookup` function to do a unique array merge on a special `classes` key, and pass the resulting array to the `include` function. (You can also use the old `hiera_include` function, but it hasn't been necessary since `include` became array-friendly in Puppet 3.)
 
