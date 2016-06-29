@@ -15,7 +15,7 @@ title: "Roles and Profiles: Introduction"
 [puppetlabs/apt]: TODO
 
 
-Most people's primary goal with Puppet is to build _complete system configurations:_ that is, to manage all of the software, services, and configuration they care about on a given system. (This usually isn't _every_ piece of software on a system; just the subset that matters to your business.)
+Most people's primary goal with Puppet is to build _complete system configurations:_ that is, to manage all of the software, services, and configuration they care about on a given system. (This usually isn't _every_ piece of software on a system; typically you manage the subset that matters to your business, and leave the rest to the OS vendor's defaults.)
 
 Building system configurations can be difficult --- mostly because the systems you manage are complicated. To keep that complexity under control, your code needs to be reusable, easy to configure, and easy to refactor.
 
@@ -26,6 +26,8 @@ The **roles and profiles** method is Puppet's best tool for building reusable, c
 Roles and profiles are **two extra layers of indirection** between your node classifier and your component modules.
 
 > **Note:** A component module is a normal module that manages one technology. See the [glossary][] below.
+
+These extra layers of indirection might seem like they add complexity, but they give you a space to build practical, business-specific interfaces to the configuration you care most about. A better interface makes hierarchical data easier to use, makes system configurations easier to read, and makes refactoring easier.
 
 ![Diagram: NC assigns one role to group of nodes; role declares several profiles; profiles declare resources and classes from component modules, as well as core resources and other profiles.](./roles_and_profiles_overview.jpg)
 
@@ -47,8 +49,6 @@ In short, from top to bottom:
 * You limit your use of component module classes as follows:
     * Component classes are always declared via a profile, and never assigned directly to a node.
     * If they have class parameters, you specify them in the profile; never use Hiera or Puppet lookup to override component class params.
-
-These extra layers of indirection might seem like they add complexity, but what they really do is give you a space to build practical, business-specific interfaces to the differences you care most about. A better interface makes hierarchical data easier to use, makes system configurations easier to read, and makes refactoring easier.
 
 ### Building configurations without roles and profiles
 
@@ -73,30 +73,4 @@ If this works for you, then it works! You might not need roles and profiles. But
 
     Roles should have no configuration. They should all be stored in a single module, named `role`.
 
-
-## Guiding principles
-
-As you write profiles, you'll make a lot of challenging decisions about how to organize code and data. When faced with something sticky, remember these principles:
-
-### Data is only for profiles
-
-Node-specific config data should only enter the system at _one place:_ your profiles. Don't use Hiera to configure component classes; don't use it to configure roles.
-
-* Restricting data like this makes it easier for your ops team to work together on shared code. Everybody who uses your profiles knows exactly how to configure them, which saves time and reduces errors.
-* It also makes it easier to refactor your profiles, or adapt them to new versions of upstream component modules.
-
-### Keep profiles `include`-safe
-
-Your profile classes must work safely with the `include` function. This means:
-
-* You must never use [resource-like declarations][resource-like] on profiles.
-* Profiles can specify class parameters, but they must get their values from Hiera / Puppet lookup. We also recommend setting default values.
-
-**This is the keystone to making roles and profiles work well at your business.** It lets you combine profiles freely to build system configurations, while allowing profiles to pull in other profiles as needed.
-
-### Sometimes repetition is the cost of clarity
-
-You'll sometimes have to decide between repeating yourself (making code easier to read and understand, but potentially more difficult to refactor) or splitting code into more pieces (making it simpler and easier to refactor, but more difficult to read and understand). This mostly comes up when working with roles, or with super-profiles that include several other profiles.
-
-There's not necessarily a right answer to this trade-off, because it depends on what your business values most. Think hard about what you and your team find most difficult.
 
