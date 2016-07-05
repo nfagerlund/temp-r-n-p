@@ -1,0 +1,61 @@
+diff --git a/profile5.pp b/profile6.pp
+index f4bee67..3aad198 100644
+--- a/profile5.pp
++++ b/profile6.pp
+@@ -1,8 +1,10 @@
+ # /etc/puppetlabs/code/environments/production/site/profile/manifests/jenkins/master.pp
+ class profile::jenkins::master (
+   String                      $jenkins_port = '9091',
++  Boolean                     $backups_enabled = false,
+   Boolean                     $manage_plugins = false,
+   Variant[String[1], Boolean] $direct_download = 'http://pkg.jenkins-ci.org/debian-stable/binary/jenkins_1.642.2_all.deb',
++  Optional[String[1]]         $jenkins_logs_to_syslog = undef,
+   Boolean                     $install_jenkins_java = true,
+ ) {
+
+@@ -84,6 +86,15 @@ class profile::jenkins::master (
+     value => "-Xms${heap}m -Xmx${heap}m -Djava.awt.headless=true -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Dhudson.model.DirectoryBrowserSupport.CSP=\\\"default-src 'self'; img-src 'self'; style-src 'self';\\\"",
+   }
+
++  # Forward jenkins master logs to syslog.
++  # When set to facility.level the jenkins_log will use that value instead of a
++  # separate log file eg. daemon.info
++  if $jenkins_logs_to_syslog {
++    jenkins::sysconfig { 'JENKINS_LOG':
++      value => "$jenkins_logs_to_syslog",
++    }
++  }
++
+   # Deploy the SSH keys that Jenkins needs to manage its agent machines and
+   # access Git repos.
+   file { "${master_config_dir}/.ssh":
+@@ -109,4 +120,29 @@ class profile::jenkins::master (
+     source => "puppet://${secure_server}/secure/delivery/id_rsa-jenkins.pub",
+   }
+
++  # Back up Jenkins' data.
++  if $backups_enabled {
++    backup::job { "jenkins-data-${::hostname}":
++      files => $master_config_dir,
++    }
++  }
++
++  # (QENG-1829) Logrotate rules:
++  # Jenkins' default logrotate config retains too much data: by default, it
++  # rotates jenkins.log weekly and retains the last 52 weeks of logs.
++  # Considering we almost never look at the logs, let's rotate them daily
++  # and discard after 7 days to reduce disk usage.
++  logrotate::job { 'jenkins':
++    log     => '/var/log/jenkins/jenkins.log',
++    options => [
++      'daily',
++      'copytruncate',
++      'missingok',
++      'rotate 7',
++      'compress',
++      'delaycompress',
++      'notifempty'
++    ],
++  }
++
+ }

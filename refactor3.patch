@@ -1,0 +1,24 @@
+diff --git a/profile2.pp b/profile3.pp
+index 36c320e..53ee8b4 100644
+--- a/profile2.pp
++++ b/profile3.pp
+@@ -1,10 +1,17 @@
+ # /etc/puppetlabs/code/environments/production/site/profile/manifests/jenkins/master.pp
+ class profile::jenkins::master (
+-  String  $jenkins_port = '9091',
+-  Boolean $install_jenkins_java = true,
++  String                      $jenkins_port = '9091',
++  Variant[String[1], Boolean] $direct_download = 'http://pkg.jenkins-ci.org/debian-stable/binary/jenkins_1.642.2_all.deb',
++  Boolean                     $install_jenkins_java = true,
+ ) {
+
+   class { 'jenkins':
++    lts                => true,
++    repo               => true,
++    direct_download    => $direct_download,
++    version            => 'latest',
++    service_enable     => true,
++    service_ensure     => running,
+     configure_firewall => true,
+     install_java       => $install_jenkins_java,
+     port               => $jenkins_port,

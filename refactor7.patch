@@ -1,0 +1,75 @@
+diff --git a/profile6.pp b/profile7.pp
+index 3aad198..fb00828 100644
+--- a/profile6.pp
++++ b/profile7.pp
+@@ -1,8 +1,9 @@
+ # /etc/puppetlabs/code/environments/production/site/profile/manifests/jenkins/master.pp
+ class profile::jenkins::master (
+-  String                      $jenkins_port = '9091',
+   Boolean                     $backups_enabled = false,
+   Boolean                     $manage_plugins = false,
++  Boolean                     $ssl = false,
++  Optional[String[1]]         $site_alias = undef,
+   Variant[String[1], Boolean] $direct_download = 'http://pkg.jenkins-ci.org/debian-stable/binary/jenkins_1.642.2_all.deb',
+   Optional[String[1]]         $jenkins_logs_to_syslog = undef,
+   Boolean                     $install_jenkins_java = true,
+@@ -11,6 +12,9 @@ class profile::jenkins::master (
+   # We rely on virtual resources that are ultimately declared by profile::server.
+   include profile::server
+
++  # Deploy the SSL certificate/chain/key for sites on this domain.
++  include profile::ssl::delivery_wildcard
++
+   # Some default values that vary by OS:
+   include profile::jenkins::params
+   $jenkins_owner          = $profile::jenkins::params::jenkins_owner
+@@ -22,6 +26,31 @@ class profile::jenkins::master (
+     include profile::jenkins::master::plugins
+   }
+
++  motd::register { 'Jenkins CI master (profile::jenkins::master)': }
++
++  # This adds the site_alias to the message of the day for convenience when
++  # logging into a server via FQDN. Because of the way motd::register works, we
++  # need a sort of funny formatting to put it at the end (order => 25) and to
++  # list a class so there isn't a random "--" at the end of the message.
++  if $site_alias {
++    motd::register { 'jenkins-site-alias':
++      content => @("END"),
++                 profile::jenkins::master::proxy
++
++                 Jenkins site alias: ${site_alias}
++                 |-END
++      order   => 25,
++    }
++  }
++
++  # This is a "private" profile that sets up an Nginx proxy -- it's only ever
++  # declared in this class, and it would work identically pasted inline.
++  # But since it's long, this class reads more cleanly with it separated out.
++  class { 'profile::jenkins::master::proxy':
++    site_alias  => $site_alias,
++    require_ssl => $ssl,
++  }
++
+   # Sensitive info (like SSH keys) isn't checked into version control like the
+   # rest of our modules; instead, it's served from a custom mount point on a
+   # designated server.
+@@ -56,16 +85,11 @@ class profile::jenkins::master (
+     version            => 'latest',
+     service_enable     => true,
+     service_ensure     => running,
+-    configure_firewall => true,
++    configure_firewall => false,
+     install_java       => $install_jenkins_java,
+     manage_user        => false,
+     manage_group       => false,
+     manage_datadirs    => false,
+-    port               => $jenkins_port,
+-    config_hash        => {
+-      'HTTP_PORT'    => { 'value' => $jenkins_port },
+-      'JENKINS_PORT' => { 'value' => $jenkins_port },
+-    },
+   }
+
+   # When not using the jenkins module's java version, install java8.

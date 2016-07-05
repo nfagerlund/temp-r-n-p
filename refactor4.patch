@@ -1,0 +1,48 @@
+diff --git a/profile3.pp b/profile4.pp
+index 53ee8b4..6bb4db9 100644
+--- a/profile3.pp
++++ b/profile4.pp
+@@ -5,6 +5,33 @@ class profile::jenkins::master (
+   Boolean                     $install_jenkins_java = true,
+ ) {
+
++  # We rely on virtual resources that are ultimately declared by profile::server.
++  include profile::server
++
++  # Some default values that vary by OS:
++  include profile::jenkins::params
++  $jenkins_owner          = $profile::jenkins::params::jenkins_owner
++  $jenkins_group          = $profile::jenkins::params::jenkins_group
++  $master_config_dir      = $profile::jenkins::params::master_config_dir
++
++  file { '/var/run/jenkins': ensure => 'directory' }
++
++  # Because our account::user class manages the '${master_config_dir}' directory
++  # as the 'jenkins' user's homedir (as it should), we need to manage
++  # `${master_config_dir}/plugins` here to prevent the upstream
++  # rtyler-jenkins module from trying to manage the homedir as the config
++  # dir. For more info, see the upstream module's `manifests/plugin.pp`
++  # manifest.
++  file { "${master_config_dir}/plugins":
++    ensure  => directory,
++    owner   => $jenkins_owner,
++    group   => $jenkins_group,
++    mode    => '0755',
++    require => [Group[$jenkins_group], User[$jenkins_owner]],
++  }
++
++  Account::User <| tag == 'jenkins' |>
++
+   class { 'jenkins':
+     lts                => true,
+     repo               => true,
+@@ -14,6 +41,9 @@ class profile::jenkins::master (
+     service_ensure     => running,
+     configure_firewall => true,
+     install_java       => $install_jenkins_java,
++    manage_user        => false,
++    manage_group       => false,
++    manage_datadirs    => false,
+     port               => $jenkins_port,
+     config_hash        => {
+       'HTTP_PORT'    => { 'value' => $jenkins_port },

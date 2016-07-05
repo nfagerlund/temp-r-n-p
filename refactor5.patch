@@ -1,0 +1,63 @@
+diff --git a/profile4.pp b/profile5.pp
+index 6bb4db9..f4bee67 100644
+--- a/profile4.pp
++++ b/profile5.pp
+@@ -1,6 +1,7 @@
+ # /etc/puppetlabs/code/environments/production/site/profile/manifests/jenkins/master.pp
+ class profile::jenkins::master (
+   String                      $jenkins_port = '9091',
++  Boolean                     $manage_plugins = false,
+   Variant[String[1], Boolean] $direct_download = 'http://pkg.jenkins-ci.org/debian-stable/binary/jenkins_1.642.2_all.deb',
+   Boolean                     $install_jenkins_java = true,
+ ) {
+@@ -14,6 +15,20 @@ class profile::jenkins::master (
+   $jenkins_group          = $profile::jenkins::params::jenkins_group
+   $master_config_dir      = $profile::jenkins::params::master_config_dir
+
++  if $manage_plugins {
++    # About 40 jenkins::plugin resources:
++    include profile::jenkins::master::plugins
++  }
++
++  # Sensitive info (like SSH keys) isn't checked into version control like the
++  # rest of our modules; instead, it's served from a custom mount point on a
++  # designated server.
++  $secure_server = lookup('puppetlabs::ssl::secure_server')
++
++  package { 'git':
++    ensure => present,
++  }
++
+   file { '/var/run/jenkins': ensure => 'directory' }
+
+   # Because our account::user class manages the '${master_config_dir}' directory
+@@ -69,4 +84,29 @@ class profile::jenkins::master (
+     value => "-Xms${heap}m -Xmx${heap}m -Djava.awt.headless=true -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Dhudson.model.DirectoryBrowserSupport.CSP=\\\"default-src 'self'; img-src 'self'; style-src 'self';\\\"",
+   }
+
++  # Deploy the SSH keys that Jenkins needs to manage its agent machines and
++  # access Git repos.
++  file { "${master_config_dir}/.ssh":
++    ensure => directory,
++    owner  => $jenkins_owner,
++    group  => $jenkins_group,
++    mode   => '0700',
++  }
++
++  file { "${master_config_dir}/.ssh/id_rsa":
++    ensure => file,
++    owner  => $jenkins_owner,
++    group  => $jenkins_group,
++    mode   => '0600',
++    source => "puppet://${secure_server}/secure/delivery/id_rsa-jenkins",
++  }
++
++  file { "${master_config_dir}/.ssh/id_rsa.pub":
++    ensure => file,
++    owner  => $jenkins_owner,
++    group  => $jenkins_group,
++    mode   => '0640',
++    source => "puppet://${secure_server}/secure/delivery/id_rsa-jenkins.pub",
++  }
++
+ }
