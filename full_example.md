@@ -118,8 +118,8 @@ Let's assume the following:
     - `stage`: The deployment stage of this node (dev, test, or prod).
 - We have a four-layer hierarchy:
     - `nodes/%{trusted.certname}` for per-node overrides.
-    - `groups/%{group}/%{stage}` for setting stage-specific data within a group.
-    - `groups/%{group}` for setting group-specific data.
+    - `groups/%{facts.group}/%{facts.stage}` for setting stage-specific data within a group.
+    - `groups/%{facts.group}` for setting group-specific data.
     - `common` for global fallback data.
 - We have a few one-off Jenkins masters, but most of them belong to the `ci` group.
 - Our quality engineering department wants masters in the `ci` group to use the Oracle JDK, but one-off machines can just use the platform's default Java.
