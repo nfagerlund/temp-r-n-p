@@ -558,7 +558,7 @@ class profile::jenkins::master (
   # Because our account::user class manages the '${master_config_dir}' directory
   # as the 'jenkins' user's homedir (as it should), we need to manage
   # `${master_config_dir}/plugins` here to prevent the upstream
-  # jenkinsci-jenkins module from trying to manage the homedir as the config
+  # rtyler-jenkins module from trying to manage the homedir as the config
   # dir. For more info, see the upstream module's `manifests/plugin.pp`
   # manifest.
   file { "${master_config_dir}/plugins":
@@ -661,6 +661,7 @@ class profile::jenkins::master (
       'notifempty'
     ],
   }
+
 }
 ```
 
