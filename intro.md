@@ -1,5 +1,5 @@
 ---
-title: "Roles and Profiles: Introduction"
+title: "Roles and profiles: Introduction"
 ---
 
 [module]: TODO
@@ -15,11 +15,11 @@ title: "Roles and Profiles: Introduction"
 [puppetlabs/apt]: TODO
 
 
-Most people's primary goal with Puppet is to build _complete system configurations:_ that is, to manage all of the software, services, and configuration they care about on a given system. (This usually isn't _every_ piece of software on a system; typically you manage the subset that matters to your business, and leave the rest to the OS vendor's defaults.)
+Typically, your goal with Puppet is to build _complete system configurations_, which manage all of the software, services, and configuration that you care about on a given system.
 
-Building system configurations can be difficult --- mostly because the systems you manage are complicated. To keep that complexity under control, your code needs to be reusable, easy to configure, and easy to refactor.
+Building system configurations can be challenging --- mostly because the systems you manage are complicated. To keep that complexity under control, your code needs to be reusable, easy to configure, and easy to refactor.
 
-The **roles and profiles** method is Puppet's best tool for building reusable, configurable, and refactorable system configurations. It's not a straightforward recipe: you must think hard about the nature of your infrastructure and your team. It's also not a final state: expect to refine your configurations over time. Instead, it's an approach to _designing your infrastructure's interface_ --- sealing away incidental complexity, surfacing the significant complexity, and making sure your data behaves predictably.
+The **roles and profiles** method is Puppet's approach for building reusable, configurable, and refactorable system configurations. It's not a straightforward recipe: you must think hard about the nature of your infrastructure and your team. It's also not a final state: expect to refine your configurations over time. Instead, it's an approach to _designing your infrastructure's interface_ --- sealing away incidental complexity, surfacing the significant complexity, and making sure your data behaves predictably.
 
 ## The roles and profiles architecture
 
@@ -44,11 +44,11 @@ In short, from top to bottom:
   }
   ```
 
-* Each profile configures a layered technology stack, using multiple component modules and the built-in resource types. (In the diagram, `profile::jenkins::master` uses [rtyler/jenkins][], [puppetlabs/apt][], a home-built backup module, and some `package` and `file` resources.)
-* Profiles can take configuration data from Hiera or Puppet lookup.
-* You limit your use of component module classes as follows:
+* Each profile configures a layered technology stack, using multiple component modules and the built-in resource types. In the diagram, `profile::jenkins::master` uses [rtyler/jenkins][], [puppetlabs/apt][], a home-built backup module, and some `package` and `file` resources.
+* Profiles can take configuration data from Hiera or Puppet lookup. For example, in the diagram ...
+* Component modules --- normal modules that each manage one technology --- are only used in the following ways:
     * Component classes are always declared via a profile, and never assigned directly to a node.
-    * If they have class parameters, you specify them in the profile; never use Hiera or Puppet lookup to override component class params.
+    * If they have class parameters, you specify them in the _profile_; never use Hiera or Puppet lookup to override component class params.
 
 ### Building configurations without roles and profiles
 
