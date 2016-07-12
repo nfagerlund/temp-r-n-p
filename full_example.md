@@ -22,7 +22,7 @@ Use it to understand the roles and profiles method as a whole. Subsequent exampl
 
 ## Our example: Jenkins masters
 
-[Jenkins][] is a continuous integration (CI) application that runs on a JVM. The Jenkins master server provides a web front-end, and also runs CI tasks at scheduled times or in reaction to events.
+[Jenkins][] is a continuous integration (CI) application that runs on the JVM. The Jenkins master server provides a web front-end, and also runs CI tasks at scheduled times or in reaction to events.
 
 For our main example, we'll manage the configuration of our Jenkins master servers.
 
@@ -31,7 +31,12 @@ For our main example, we'll manage the configuration of our Jenkins master serve
 If you're new to using roles and profiles, do some additional setup before writing any new code.
 
 1. Create two [modules][]: one named `role`, and one named `profile`.
-    If you deploy your code with Puppet Enterprise's code manager or r10k, put these two modules in your control repository instead of declaring them in your Puppetfile. (You can do it either way, but this way gives better results for most people.) Make a directory named `site` in the repo, and edit the `environment.conf` file to add that directory to the `modulepath`.
+
+    If you deploy your code with Puppet Enterprise's code manager or r10k, we recommend putting these two modules in your control repository instead of declaring them in your Puppetfile. Since code manager and r10k reserve the `modules` directory for their own use, you must put them in a separate directory:
+
+    1. Make a new directory in the repo named `site`.
+    1. Edit the `environment.conf` file to add `site` to the `modulepath`. (For example: `modulepath = site:modules:$basemodulepath`)
+    1. Put the `role` and `profile` modules in the `site` directory.
 2. Make sure [Hiera][] or [Puppet lookup][] is set up and working, with a hierarchy that works well for you.
 
 ## Step 1: Choose component modules
@@ -45,9 +50,9 @@ That's enough to start with; we can refactor and expand once we have those worki
 
 From Puppet's perspective, a profile is just a normal class stored in the `profile` module. So we'll make a new class called `profile::jenkins::master`, located at `.../profile/manifests/jenkins/master.pp`, and fill it with Puppet code.
 
-### The rules for profiles classes
+### The rules for profile classes
 
-* Make profiles work safely with [the `include` function][include] --- don't use [resource-like declarations][resource-like] on them.
+* Make sure you can safely [`include`][include] any profile multiple times --- don't use [resource-like declarations][resource-like] on them.
 * Profiles can `include` other profiles.
 * Profiles own _all_ the class parameters for their component classes. If the profile omits one, that means you definitely want the default value; the component class shouldn't use a value from Hiera data. If you need to set a class parameter that was omitted previously, refactor the profile.
 * There are three ways a profile can get the information it needs to configure component classes:
@@ -55,7 +60,7 @@ From Puppet's perspective, a profile is just a normal class stored in the `profi
     * If you can't hardcode it, try to **compute it** based on information you already have.
     * Finally, if you can't compute it, **look it up** in your data. To reduce lookups, identify cases where multiple parameters can be derived from the answer to a single question.
 
-    This is a game of trade-offs. Hardcoded parameters are the easiest to read, and also the least flexible. Putting values in your Hiera data is very flexible, but can impede performance and can be very difficult to read: you might have to look through a lot of files (or run a lot of lookup commands) to see what the profile is actually doing. Using conditional logic to derive a value is a middle-ground.
+    This is a game of trade-offs. Hardcoded parameters are the easiest to read, and also the least flexible. Putting values in your Hiera data is very flexible, but can be very difficult to read: you might have to look through a lot of files (or run a lot of lookup commands) to see what the profile is actually doing. Using conditional logic to derive a value is a middle-ground.
 
     Aim for the most readable option you can get away with.
 
