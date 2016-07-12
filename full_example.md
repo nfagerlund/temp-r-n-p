@@ -52,10 +52,10 @@ From Puppet's perspective, a profile is just a normal class stored in the `profi
 
 ### The rules for profile classes
 
-* Make sure you can safely [`include`][include] any profile multiple times --- don't use [resource-like declarations][resource-like] on them.
-* Profiles can `include` other profiles.
-* Profiles own _all_ the class parameters for their component classes. If the profile omits one, that means you definitely want the default value; the component class shouldn't use a value from Hiera data. If you need to set a class parameter that was omitted previously, refactor the profile.
-* There are three ways a profile can get the information it needs to configure component classes:
+1. Make sure you can safely [`include`][include] any profile multiple times --- don't use [resource-like declarations][resource-like] on them.
+2. Profiles can `include` other profiles.
+3. Profiles own _all_ the class parameters for their component classes. If the profile omits one, that means you definitely want the default value; the component class shouldn't use a value from Hiera data. If you need to set a class parameter that was omitted previously, refactor the profile.
+4. There are three ways a profile can get the information it needs to configure component classes:
     * If your business will always use the same value for a given parameter, **hardcode it.**
     * If you can't hardcode it, try to **compute it** based on information you already have.
     * Finally, if you can't compute it, **look it up** in your data. To reduce lookups, identify cases where multiple parameters can be derived from the answer to a single question.

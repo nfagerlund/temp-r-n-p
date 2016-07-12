@@ -10,10 +10,12 @@ title: "Designing advanced profiles"
 [puppetlabs/motd]: TODO
 [jfryman/nginx]: TODO
 [fact]: todo
+[example]: ./full_example.html
+[intro]: ./intro.html
 
-Once you have read [] and [], and have a good understanding of how the roles and profiles method works, we explore writing more advanced profiles.
+Now that you've read our [introduction to roles and profiles][intro] and [complete example][example], and have a good understanding of how the roles and profiles method works, we can write a more advanced profile.
 
-The profile in the top-to-bottom example was very simple, and didn't show how to manage a complex service. In this advanced example, we'll iteratively refactor our example code to handle real-world concerns. The final result is --- with only minor differences --- the Jenkins profile we use in production here at Puppet.
+The profile in [the top-to-bottom example][example] was very simple, and didn't show how to manage a complex service. In this advanced example, we'll iteratively refactor our example code to handle real-world concerns. The final result is --- with only minor differences --- the Jenkins profile we use in production here at Puppet.
 
 Along the way, we'll explain our choices and point out some of the common trade-offs you'll encounter as you design your own profiles.
 
@@ -69,7 +71,7 @@ We could copy and paste the Java class declaration: it's small, so keeping multi
 
 > **Note:** This is a common trade-off. Keeping a chunk of code in only one place (often called the DRY --- "don't repeat yourself" --- principle) makes it more maintainable and less vulnerable to rot. But it has a cost: your individual profile classes become less readable, and you must view more files to see what a profile actually does.
 >
-> To reduce that readability cost, try to break code out in units that make inherent sense. In this case, the Java profile's job is simple enough to guess by its name --- your colleagues don't have to read its code to know that it manages Java 8.
+> To reduce that readability cost, try to break code out in units that make inherent sense. In this case, the Java profile's job is simple enough to guess by its name --- your colleagues don't have to read its code to know that it manages Java 8. Comments can also help.
 
 First, decide how configurable Java should be on Jenkins machines. After looking at our past usage, we realized that we only use two options: either we install Oracle's Java 8 distribution, or we default to OpenJDK 7, which the Jenkins module manages. This means we can:
 
@@ -163,7 +165,7 @@ The Jenkins module has a `jenkins::sysconfig` defined type for managing system p
 
 We dislike surprise upgrades, so we pin Jenkins to a specific version. We do this with a direct package URL instead of by adding Jenkins to our internal package repositories. Your organization might choose to do it differently.
 
-First, we add a parameter, so we can upgrade Jenkins earlier on specific machines:
+First, we add a parameter to control upgrades. Now we can set a new value in `.../data/groups/ci/dev.yaml` while leaving `.../data/groups/ci.yaml` alone --- our dev machines will get the new Jenkins version first, and we can ensure everything works as expected before upgrading our prod machines.
 
 ``` puppet
 class profile::jenkins::master (
@@ -192,11 +194,11 @@ Then, we set the necessary parameters in the Jenkins class:
   }
 ```
 
-This was a good time to make sure we're explicitly managing the Jenkins _service,_ so we did that as well.
+This was a good time to explicitly manage the Jenkins _service,_ so we did that as well.
 
 ## Fourth refactor: Manually manage the user account
 
-We manage a lot of user accounts in our infrastructure, so we handle them in a unified way. The `profile::server` class pulls in `virtual::users`, which has a lot of [virtual resources][] that profiles selectively realize depending on who needs to log into a given machine.
+We manage a lot of user accounts in our infrastructure, so we handle them in a unified way. The `profile::server` class pulls in `virtual::users`, which has a lot of [virtual resources][] we can selectively realize depending on who needs to log into a given machine.
 
 > **Note:** This has a cost --- it's action at a distance, and you need to read more files to see which users are enabled for a given profile. But we decided the benefit was worth it: since all user accounts are written in one or two files, it's easy to see all the users that might exist, and ensure that they're managed consistently.
 >
@@ -265,7 +267,7 @@ Three things to notice in the code above:
 
 ## Fifth refactor: Manage more dependencies
 
-We at Puppet use Git for source control, so Jenkins always needs Git installed. Jenkins needs SSH keys to access private Git repos and run commands on Jenkins agent nodes. We also have a standard list of Jenkins plugins we use, so we manage those too.
+Jenkins always needs Git installed (since we use Git for source control at Puppet), and it needs SSH keys to access private Git repos and run commands on Jenkins agent nodes. We also have a standard list of Jenkins plugins we use, so we manage those too.
 
 Managing Git is pretty easy:
 
