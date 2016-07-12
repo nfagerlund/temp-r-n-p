@@ -1,5 +1,5 @@
 ---
-title: "Roles and profiles: A top-to-bottom example"
+title: "Roles and profiles: A complete example"
 ---
 
 [jenkins_module]: https://forge.puppet.com/rtyler/jenkins
@@ -16,54 +16,50 @@ title: "Roles and profiles: A top-to-bottom example"
 [main manifest]: TODO
 [node statements]: TODO
 
-This page will demonstrate a complete roles and profiles workflow, focusing on a simple but plausible example.
+This simple, but not oversimplified example demonstrates a complete roles and profiles workflow.
 
-Your goal on this page is to understand the method as a whole. On the following pages, we'll teach you how to design advanced configurations, by refactoring this example code to a more realistic level of complexity.
+Use it to understand the roles and profiles method as a whole. Subsequent examples show how to design advanced configurations by refactoring this example code to a higher level of complexity.
 
 ## Our example: Jenkins masters
 
-[Jenkins][] is a continuous integration (CI) application that runs on the JVM. The Jenkins master server provides a web front-end, and also runs CI tasks at scheduled times or in reaction to events.
+[Jenkins][] is a continuous integration (CI) application that runs on a JVM. The Jenkins master server provides a web front-end, and also runs CI tasks at scheduled times or in reaction to events.
 
-For our main example, we'll try to manage the configuration of our Jenkins master servers.
+For our main example, we'll manage the configuration of our Jenkins master servers.
 
 ## Step 0: Set up your prerequisites
 
-If you're new to using roles and profiles, you might need to do some additional work before writing any new code.
+If you're new to using roles and profiles, do some additional setup before writing any new code.
 
-1. Create two new [modules][]: one named `role`, and one named `profile`.
-    * If you deploy your code with Puppet Enterprise's code manager or r10k, put these two modules in your control repository instead of declaring them in your Puppetfile. (You can do it either way, but this way gives better results for most people.) You'll have to make a separate directory in the repo (usually named `site`) and edit the `environment.conf` file to add that directory to the `modulepath`.
-2. Make sure [Hiera][] and/or [Puppet lookup][] is set up and working, with a hierarchy that works well for you.
+1. Create two [modules][]: one named `role`, and one named `profile`.
+    If you deploy your code with Puppet Enterprise's code manager or r10k, put these two modules in your control repository instead of declaring them in your Puppetfile. (You can do it either way, but this way gives better results for most people.) Make a directory named `site` in the repo, and edit the `environment.conf` file to add that directory to the `modulepath`.
+2. Make sure [Hiera][] or [Puppet lookup][] is set up and working, with a hierarchy that works well for you.
 
 ## Step 1: Choose component modules
 
-* For our current task, we definitely want to manage Jenkins itself. The standard module for that is [rtyler/jenkins][jenkins_module].
-* Jenkins requires Java, and the rtyler module can manage it automatically. But we want finer control over Java, so we're going to disable that. We need a Java module, and [puppetlabs/java][java_module] is a solid choice.
+1. For our example, we want to manage Jenkins itself. The standard module for that is [`rtyler/jenkins`][jenkins_module].
+2. Jenkins requires Java, and the `rtyler` module can manage it automatically. But we want finer control over Java, so we're going to disable that. So, we need a Java module, and [`puppetlabs/java`][java_module] is a good choice.
 
 That's enough to start with; we can refactor and expand once we have those working.
 
 ## Step 2: Write a profile
 
-From Puppet's perspective, a profile is just a normal class stored in the `profile` module. So we'll make a new class called `profile::jenkins::master`, located at `.../profile/manifests/jenkins/master.pp`.
+From Puppet's perspective, a profile is just a normal class stored in the `profile` module. So we'll make a new class called `profile::jenkins::master`, located at `.../profile/manifests/jenkins/master.pp`, and fill it with Puppet code.
 
-Then we have to write the code.
-
-### The rules
-
-Here are the rules for writing profile classes:
+### The rules for profiles classes
 
 * Make profiles work safely with [the `include` function][include] --- don't use [resource-like declarations][resource-like] on them.
 * Profiles can `include` other profiles.
-* Profiles own _all_ the class parameters for their component classes. If the profile omits one, that means we definitely want the default value; the component class shouldn't grab a value from Hiera data. If you need to set a class parameter that was omitted previously, refactor the profile.
+* Profiles own _all_ the class parameters for their component classes. If the profile omits one, that means you definitely want the default value; the component class shouldn't use a value from Hiera data. If you need to set a class parameter that was omitted previously, refactor the profile.
 * There are three ways a profile can get the information it needs to configure component classes:
     * If your business will always use the same value for a given parameter, **hardcode it.**
     * If you can't hardcode it, try to **compute it** based on information you already have.
-    * Finally, if you can't compute it, **look it up** in your data. To reduce lookups, try to identify cases where multiple parameters can be derived from the answer to a single question.
+    * Finally, if you can't compute it, **look it up** in your data. To reduce lookups, identify cases where multiple parameters can be derived from the answer to a single question.
 
-    This is a game of trade-offs. Hardcoded parameters are the easiest to read, and also the least flexible. Putting values in your Hiera data is very flexible, but very difficult to read: you might have to look through a lot of files (or run a lot of lookup commands) to see what the profile is actually doing. Using conditional logic to derive a value is a middle-ground.
+    This is a game of trade-offs. Hardcoded parameters are the easiest to read, and also the least flexible. Putting values in your Hiera data is very flexible, but can impede performance and can be very difficult to read: you might have to look through a lot of files (or run a lot of lookup commands) to see what the profile is actually doing. Using conditional logic to derive a value is a middle-ground.
 
     Aim for the most readable option you can get away with.
 
-### The code
+### The sample profile code
 
 ``` puppet
 # /etc/puppetlabs/code/environments/production/site/profile/manifests/jenkins/master.pp
@@ -91,7 +87,7 @@ class profile::jenkins::master (
 }
 ```
 
-This is pretty simple, but is already benefiting us: our interface for configuring Jenkins has gone from 30-some parameters on the Jenkins class (and many more on the Java class) down to three. Notice that we've hardcoded the `configure_firewall` and `install_java` parameters, and have reused the value of `$jenkins_port` in three places.
+This is pretty simple, but is already benefiting us: our interface for configuring Jenkins has gone from 30 or so parameters on the Jenkins class (and many more on the Java class) down to three. Notice that we've hardcoded the `configure_firewall` and `install_java` parameters, and have reused the value of `$jenkins_port` in three places.
 
 ### About data and class parameters
 
@@ -107,7 +103,7 @@ class profile::jenkins {
   # ...
 ```
 
-In general, class parameters are better. They integrate better with tools like [Puppet Strings][], they'll probably integrate better with future tools, and they're a reliable and well-known place to look for configuration. But using `lookup` is a fine approach if you aren't comfortable with automatic parameter lookup. (Some people prefer the full lookup key to be written in the profile, so they can globally grep for it.)
+In general, class parameters are better. They integrate better with tools like [Puppet Strings][], and they're a reliable and well-known place to look for configuration. But using `lookup` is a fine approach if you aren't comfortable with automatic parameter lookup. Some people prefer the full lookup key to be written in the profile, so they can globally grep for it.
 
 ## Step 3: Set Hiera data for the profile
 
@@ -167,7 +163,7 @@ Finally, we assign `role::jenkins::master` to every node that acts as a Jenkins 
 
 Puppet has several ways to assign classes to nodes, so use whichever tool you feel best fits your team. Your main choices are:
 
-* The [PE console][], which lets you group nodes based on their facts and assign classes to those groups.
+* The [PE console][] node classifier, which lets you group nodes based on their facts and assign classes to those groups.
 * The [main manifest][], which can use [node statements][] or conditional logic to assign classes.
-* Hiera or Puppet lookup --- use the `lookup` function to do a unique array merge on a special `classes` key, and pass the resulting array to the `include` function. (You can also use the old `hiera_include` function, but it hasn't been necessary since `include` became array-friendly in Puppet 3.)
+* Hiera or Puppet lookup --- use the `lookup` function to do a unique array merge on a special `classes` key, and pass the resulting array to the `include` function.
 
