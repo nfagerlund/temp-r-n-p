@@ -152,7 +152,20 @@ Our Jenkins masters don't serve any other purpose. But we have some profiles (co
 * `profile::base` must be assigned to every machine, including workstations. It manages basic policies, and uses some conditional logic to include OS-specific profiles as needed.
 * `profile::server` must be assigned to every machine that provides a service over the network. It makes sure ops can log into the machine, and configures things like timekeeping, firewalls, logging, and monitoring.
 
-So a role that configures a node to be one of our Jenkins masters looks like this:
+So a role to manage one of our Jenkins masters should include those classes as well.
+
+### The rules for role classes
+
+Here are the rules for writing role classes:
+
+1. The only thing roles should do is declare profile classes with `include`. Don't declare any component classes or normal resources in a role.
+
+    Optionally, roles can use conditional logic to decide which profiles to use. They can also include other role classes, as long as those roles obey these same rules.
+2. Roles should not have any class parameters of their own.
+3. Roles should not set class parameters for any profiles. (Those are all handled by data lookup.)
+
+### The sample role code
+
 
 ``` puppet
 class role::jenkins::master {
