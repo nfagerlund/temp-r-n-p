@@ -65,7 +65,7 @@ Again, here are the rules for writing profile classes:
 
 ## First refactor: Split out Java
 
-In addition to Jenkins masters, we also want to manage our Jenkins agent nodes. We won't cover the full process of writing those profiles, but the first issue we encountered is that they also need Java.
+We want to manage Jenkins masters _and_ Jenkins agent nodes. We won't cover agent profiles in detail, but the first issue we encountered is that they also need Java.
 
 We could copy and paste the Java class declaration: it's small, so keeping multiple copies up-to-date might not be too burdensome. But instead, we decided to break Java out into a separate profile. This way we can manage it once, then include the Java profile in both the agent and master profiles.
 
