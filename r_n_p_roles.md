@@ -1,9 +1,12 @@
 ---
-title: "Designing convenient roles"
+title: "Roles and profiles: Designing convenient roles"
 ---
 
-[example]: ./full_example.html
-[intro]: ./intro.html
+[intro]: ./r_n_p_intro.html
+[example]: ./r_n_p_full_example.html
+[profiles]: ./r_n_p_profiles.html
+[roles]: ./r_n_p_roles.html
+
 [resource-like]: {{puppet}}/lang_classes.html#include-like-vs-resource-like
 
 Now that you've read our [introduction to roles and profiles][intro] and [complete example][example], and have a good understanding of how the roles and profiles method works, we can discuss some varying approaches to keeping your role classes convenient and simple.

@@ -1,6 +1,11 @@
 ---
-title: "Designing advanced profiles"
+title: "Roles and profiles: Designing advanced profiles"
 ---
+
+[intro]: ./r_n_p_intro.html
+[example]: ./r_n_p_full_example.html
+[profiles]: ./r_n_p_profiles.html
+[roles]: ./r_n_p_roles.html
 
 [include]: {{puppet}}/lang_classes.html#using-include
 [resource-like]: {{puppet}}/lang_classes.html#include-like-vs-resource-like
@@ -10,8 +15,6 @@ title: "Designing advanced profiles"
 [puppetlabs/motd]: https://forge.puppet.com/puppetlabs/motd
 [jfryman/nginx]: https://forge.puppet.com/jfryman/nginx
 [fact]: {{puppet}}/lang_facts_and_builtin_vars.html
-[example]: ./full_example.html
-[intro]: ./intro.html
 
 Now that you've read our [introduction to roles and profiles][intro] and [complete example][example], and have a good understanding of how the roles and profiles method works, we can write a more advanced profile.
 

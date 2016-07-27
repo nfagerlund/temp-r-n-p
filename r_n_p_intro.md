@@ -1,6 +1,11 @@
 ---
-title: "Roles and Profiles: Introduction"
+title: "Roles and profiles: Introduction"
 ---
+
+[intro]: ./r_n_p_intro.html
+[example]: ./r_n_p_full_example.html
+[profiles]: ./r_n_p_profiles.html
+[roles]: ./r_n_p_roles.html
 
 [main manifest]: {{puppet}}/dirs_manifest.html
 
@@ -20,7 +25,7 @@ Roles and profiles are **two extra layers of indirection** between your node cla
 
 These extra layers of indirection might seem like they add complexity, but they give you a space to build practical, business-specific interfaces to the configuration you care most about. A better interface makes hierarchical data easier to use, makes system configurations easier to read, and makes refactoring easier.
 
-![Diagram: NC assigns one role to group of nodes; role declares several profiles; profiles declare resources and classes from component modules, as well as core resources and other profiles.](./roles_and_profiles_overview.jpg)
+![Diagram: NC assigns one role to group of nodes; role declares several profiles; profiles declare resources and classes from component modules, as well as core resources and other profiles.](./images/roles_and_profiles_overview.jpg)
 
 In short, from top to bottom:
 
@@ -46,3 +51,6 @@ Without roles and profiles, people typically build system configurations in thei
 
 If this works for you, then it works! You might not need roles and profiles. But most people find direct building gets difficult to understand and maintain over time.
 
+## Next steps
+
+Now that you understand what the roles and profiles method is, you can learn how to use it with [a simple (but not oversimplified) example workflow.][example]

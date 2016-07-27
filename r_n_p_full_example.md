@@ -2,6 +2,11 @@
 title: "Roles and profiles: A complete example"
 ---
 
+[intro]: ./r_n_p_intro.html
+[example]: ./r_n_p_full_example.html
+[profiles]: ./r_n_p_profiles.html
+[roles]: ./r_n_p_roles.html
+
 [jenkins_module]: https://forge.puppet.com/rtyler/jenkins
 [jenkins]: https://jenkins.io/
 [java_module]: https://forge.puppet.com/puppetlabs/java
@@ -186,3 +191,9 @@ Puppet has several ways to assign classes to nodes, so use whichever tool you fe
 * The [main manifest][], which can use [node statements][] or conditional logic to assign classes.
 * Hiera or Puppet lookup --- use the `lookup` function to do a unique array merge on a special `classes` key, and pass the resulting array to the `include` function.
 
+## Next steps
+
+Now that you understand how to use the roles and profiles method, you can:
+
+* [Learn how to write more advanced profiles.][profiles] This is the most complex and important part of the roles and profiles method.
+* [Learn alternate approaches to writing convenient roles.][roles]
