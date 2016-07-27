@@ -2,14 +2,14 @@
 title: "Designing advanced profiles"
 ---
 
-[include]: TODO
-[resource-like]: TODO
-[virtual resources]: TODO
-[resource collector]: TODO
-[custom mount point]: TODO
-[puppetlabs/motd]: TODO
-[jfryman/nginx]: TODO
-[fact]: todo
+[include]: {{puppet}}/lang_classes.html#using-include
+[resource-like]: {{puppet}}/lang_classes.html#include-like-vs-resource-like
+[virtual resources]: {{puppet}}/lang_virtual.html
+[resource collector]: {{puppet}}/lang_collectors.html
+[custom mount point]: {{puppet}}/file_serving.html
+[puppetlabs/motd]: https://forge.puppet.com/puppetlabs/motd
+[jfryman/nginx]: https://forge.puppet.com/jfryman/nginx
+[fact]: {{puppet}}/lang_facts_and_builtin_vars.html
 [example]: ./full_example.html
 [intro]: ./intro.html
 

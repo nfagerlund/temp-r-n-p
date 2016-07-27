@@ -3,18 +3,19 @@ title: "Roles and profiles: A complete example"
 ---
 
 [jenkins_module]: https://forge.puppet.com/rtyler/jenkins
-[jenkins]: TODO
-[java_module]: TODO
-[auto_params]: TODO
-[puppet strings]: TODO
-[modules]: TODO
-[hiera]: TODO
-[puppet lookup]: TODO
-[include]: TODO
-[resource-like]: TODO
-[pe console]: TODO
-[main manifest]: TODO
-[node statements]: TODO
+[jenkins]: https://jenkins.io/
+[java_module]: https://forge.puppet.com/puppetlabs/java
+[auto_params]: {{hiera}}/puppet.html#automatic-parameter-lookup
+[puppet strings]: https://github.com/puppetlabs/puppetlabs-strings
+[modules]: {{puppet}}/modules_fundamentals.html
+[hiera]: {{hiera}}/
+[puppet lookup]: {{puppet}}/lookup_quick.html
+[include]: {{puppet}}/lang_classes.html#using-include
+[resource-like]: {{puppet}}/lang_classes.html#include-like-vs-resource-like
+[pe console]: {{pe}}/console_classes_groups_getting_started.html
+[main manifest]: {{puppet}}/dirs_manifest.html
+[node statements]: {{puppet}}/lang_node_definitions.html
+
 
 This simple, but not oversimplified example demonstrates a complete roles and profiles workflow.
 

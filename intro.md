@@ -2,18 +2,7 @@
 title: "Roles and Profiles: Introduction"
 ---
 
-[module]: TODO
-[class]: TODO
-[environment.conf]: TODO
-[hiera]: TODO
-[puppet lookup]: TODO
-[auto_params]: TODO
-[lookup_function]: TODO
-[main manifest]: TODO
-[resource-like]: TODO
-[rtyler/jenkins]: TODO
-[puppetlabs/apt]: TODO
-
+[main manifest]: {{puppet}}/dirs_manifest.html
 
 Your typical goal with Puppet is to build _complete system configurations,_ which manage all of the software, services, and configuration that you care about on a given system.
 
