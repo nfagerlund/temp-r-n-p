@@ -25,7 +25,7 @@ Roles and profiles are **two extra layers of indirection** between your node cla
 
 These extra layers of indirection might seem like they add complexity, but they give you a space to build practical, business-specific interfaces to the configuration you care most about. A better interface makes hierarchical data easier to use, makes system configurations easier to read, and makes refactoring easier.
 
-![Diagram: NC assigns one role to group of nodes; role declares several profiles; profiles declare resources and classes from component modules, as well as core resources and other profiles.](./images/roles_and_profiles_overview.jpg)
+![Diagram: NC assigns one role to group of nodes; role declares several profiles; profiles declare resources and classes from component modules, as well as core resources and other profiles.](./images/roles_and_profiles_overview.png)
 
 In short, from top to bottom:
 
